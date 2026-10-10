@@ -1,0 +1,58 @@
+
+from gpiozero import DigitalInputDevice, PWMOutputDevice, DigitalOutputDevice
+from time import sleep
+from threading import Lock
+
+# L298N motor driver
+ena = PWMOutputDevice(13)
+in1 = DigitalOutputDevice(19)
+in2 = DigitalOutputDevice(26)
+
+# Hall encoder, channel A
+encoder = DigitalInputDevice(6, pull_up=None)
+
+pulses = 0
+lock = Lock()
+
+def count_pulse():
+    global pulses
+    with lock:
+        pulses += 1
+
+encoder.when_activated = count_pulse
+
+# Example value: calibrate for your motor
+pulses_per_revolution = 330
+
+try:
+    # Forward direction
+    in1.on()
+    in2.off()
+
+    # 75% motor speed command
+    ena.value = 0.75
+
+    while True:
+        sleep(1)
+
+        with lock:
+            measured_pulses = pulses
+            pulses = 0
+
+        rpm = measured_pulses * 60 / pulses_per_revolution
+
+        print("Pulses per second:", measured_pulses)
+        print("Output RPM:", round(rpm, 2))
+        print("------------------------")
+
+except KeyboardInterrupt:
+    print("Stopping motor.")
+
+finally:
+    ena.off()
+    in1.off()
+    in2.off()
+    encoder.close()
+    ena.close()
+    in1.close()
+    in2.close()
